@@ -29,6 +29,7 @@ fs.watch(directoryPath, (eventType, filename) => {
         if (path.extname(filename).toLowerCase() === '.txt' && fs.existsSync(filePath)) {
             // 在检测到新文件时，延迟执行文件处理，以确保文件已完全写入
             setTimeout(() => {
+                console.log(`[${new Date().toLocaleString()}] 检测到新文件: ${filename}`);
                 processFile(filePath);
             }, delay);
         }
@@ -162,7 +163,7 @@ function processFile(filePath) {
 			const birthDate = match2[4]; // 1995xxxx
 			const name = match2[5]; // 王xx
 			console.log(`就醫日: ${predate},身分證: ${pid}, 姓名: ${name}`);
-		
+            
 			findOrCreatePatient(pid, name, birthDate).catch(console.error);
 			//藥品
 			const regex = /T([A-Za-z0-9]{10})\s+(?=.*[A-Z])(?=.*[\u4E00-\u9FFF])(.+?)\s+(BID|BIDAC|BIDPC|AP|PN|AN|TID|TIDPC|TIDAC|PRN|HS|QD|QOD|QA|QN|QP|QID|ST|STAT|Q4H|Q6H)\s+(\d+)\s+(\d+)\s+(0?\.\d{1,3}|[1-9]\d{0,2}(?:\.\d{1,3})?)\s+(\d+)/gu;
