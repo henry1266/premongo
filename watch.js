@@ -6,6 +6,7 @@ const io = require('socket.io-client');  // 引入 Socket.IO 客户端库
 // 连接到 Socket.IO 服务器
 const socket = io.connect('http://localhost:4000'); // 连接到 app.js
 
+
 // 监控的目录路径
 const directoryPath = 'X:\\vital';
 //const directoryPath = 'W:\\his'; // 修改为你想要保存的目标目录
