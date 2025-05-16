@@ -256,7 +256,8 @@ function processFile(filePath) {
         pretype,
         prem,
         preday,
-        precount
+        precount,
+        name // Pass the patient's name
       ).catch(console.error);
       socket.emit("refreshData", {
         pid,
@@ -341,10 +342,10 @@ async function insertPrescription(
   pretype,
   prem,
   preday,
-  precount
+  precount,
+  patientName // Added patientName parameter
 ) {
   // MongoDB 連接 URI
-
   const uri = "mongodb://192.168.68.79:27017";
   const client = new MongoClient(uri);
 
@@ -355,49 +356,73 @@ async function insertPrescription(
     // 選擇數據庫和集合
     const db = client.db("pharmacy");
     const prescriptionsCollection = db.collection("prescriptions");
-    const newPrescription = {
-      pid: pid,
-      presec: presec,
-      predate: predate,
-      pretype: pretype,
-      prem: prem, // 慢箋編號
-      preday: preday, // 慢箋有效日
-      precount: precount,
-      prei0: "1",
-      prei1: "1",
-      prei2: "2",
-      prei3: "2",
-      drug: drugs, // 這裡使用從正則表達式提取出的藥品資料
-      // Add a timestamp for sorting or tracking, using current date as default
-      date: new Date() 
+    
+    const filter = { pid: pid, predate: predate, presec: presec };
+    
+    const updateDoc = {
+      $set: {
+        pretype: pretype,
+        prem: prem, // 慢箋編號
+        preday: preday, // 慢箋有效日
+        precount: precount,
+        prei0: "1",
+        prei1: "1",
+        prei2: "2",
+        prei3: "2",
+        drug: drugs, // 這裡使用從正則表達式提取出的藥品資料
+        date: new Date(), // Update the date to the current time on each upsert
+        patientName: patientName // Store patient name
+      }
     };
 
-    // 插入處方資料
-    const result = await prescriptionsCollection.insertOne(newPrescription);
-    console.log("插入成功，文檔ID為:", result.insertedId);
+    const options = { upsert: true, returnDocument: 'after' }; // returnDocument: 'after' will return the new or updated document
 
-    // Notify preapp about the new prescription
-    try {
-      const notificationData = {
-        _id: result.insertedId, // Send the MongoDB document ID
-        patientName: pid, // Assuming pid is used as patient identifier, adjust if name is available and preferred
-        medications: drugs.map(d => d.dname), // Send drug names
-        date: newPrescription.date, // Send the timestamp
-        details: `Type: ${pretype}, Sec: ${presec}, Date: ${predate}` // Example details
-      };
-      await axios.post(
-        "http://localhost:3001/api/notify-prescription-update",
-        notificationData
-      );
-      console.log("Successfully notified preapp of new prescription.");
-    } catch (axiosError) {
-      console.error("Error notifying preapp:", axiosError.message);
+    // 更新或插入處方資料
+    const result = await prescriptionsCollection.findOneAndUpdate(filter, updateDoc, options);
+
+    let upsertedDocument = result.value;
+    if (result.lastErrorObject && result.lastErrorObject.upserted) {
+        console.log("插入成功，文檔ID為:", result.lastErrorObject.upserted);
+        upsertedDocument._id = result.lastErrorObject.upserted; // Ensure _id is correctly assigned for new inserts
+    } else if (result.value) {
+        console.log("更新成功，文檔ID為:", result.value._id);
+    } else {
+        // This case should ideally not be reached if findOneAndUpdate is used with upsert:true and returnDocument:'after'
+        // but as a fallback, we can try to find the document again if result.value is null and no upserted id is present
+        console.log("Upsert operation completed, but no document returned directly. Fetching...");
+        upsertedDocument = await prescriptionsCollection.findOne(filter);
+        if(upsertedDocument) {
+            console.log("Fetched document after upsert, ID:", upsertedDocument._id);
+        } else {
+            console.error("Failed to retrieve document after upsert.");
+            return; // Exit if document cannot be confirmed
+        }
     }
 
-    // 当数据库发生变化时，向服务器发送 `refreshData` 事件
-    //socket.emit('refreshData', { pid: pid, status: 'new_prescription_added' });
+    // Notify preapp about the new or updated prescription
+    if (upsertedDocument) {
+        try {
+            const notificationData = {
+                _id: upsertedDocument._id.toString(), // Send the MongoDB document ID as string
+                patientName: upsertedDocument.patientName || pid, // Use stored name or pid
+                medications: upsertedDocument.drug ? upsertedDocument.drug.map(d => d.dname) : [], // Send drug names
+                date: upsertedDocument.date, // Send the timestamp
+                details: `Type: ${upsertedDocument.pretype}, Sec: ${upsertedDocument.presec}, Date: ${upsertedDocument.predate}` // Example details
+            };
+            await axios.post(
+                "http://localhost:3001/api/notify-prescription-update",
+                notificationData
+            );
+            console.log("Successfully notified preapp of new/updated prescription.");
+        } catch (axiosError) {
+            console.error("Error notifying preapp:", axiosError.message);
+        }
+    } else {
+        console.error("Upserted document is null, cannot notify preapp.");
+    }
+
   } catch (e) {
-    console.error("插入資料時出錯:", e);
+    console.error("處理處方資料時出錯:", e);
   } finally {
     // 關閉連接
     await client.close();
@@ -434,11 +459,16 @@ async function findOrCreatePatient(pid, name, birthDate) {
       const result = await patientsCollection.insertOne(newPatient);
       console.log(`新病人已插入，ID 為: ${result.insertedId}`);
     } else {
-      console.log(`病人 ${name} 已經存在於資料庫中`);
+        // Optionally update patient name if it differs, or just log
+        if (existingPatient.pname !== name) {
+            await patientsCollection.updateOne({ pid: pid }, { $set: { pname: name } });
+            console.log(`Patient ${pid} name updated to ${name}.`);
+        } else {
+            console.log(`病人 ${name} (ID: ${pid}) 已經存在於資料庫中`);
+        }
     }
   } catch (e) {
-    console.error("插入資料時出錯:");
-    //console.error("插入資料時出錯:", e);
+    console.error("處理病患資料時出錯:", e);
   } finally {
     // 關閉連接
     await client.close();
