@@ -175,7 +175,7 @@ function processFile(filePath) {
       }
 
       let pretype, prem = "", preday = "", precount = "";
-      if (acday > 4) {
+      if (acday > 7) {
         pretype = "04"; runPSScript2("慢"); prem = "1"; preday = "30"; precount = "3";
       } else if (decodedData.includes("⊕")) {
         pretype = "02"; // 小孩藥水
