@@ -78,7 +78,7 @@ function processFile(filePath) {
       let timeDifference = date1 - date0;
       let daysDifference = timeDifference / (1000 * 60 * 60 * 24);
       acday = daysDifference + 1;
-      console.log(acday);
+      //console.log(acday);
       determinedDayCount = acday; // Initialize with acday
 
       const matchPlusDays = decodedData.match(/\+([1-7])/);
@@ -186,7 +186,7 @@ function processFile(filePath) {
       insertPrescription(pid, presec, predate, medicationsData, pretype, prem, preday, precount, name, determinedDayCount)
         .catch(console.error);
 
-      socket.emit("refreshData", { pid, name, pretype, results: medicationsData, prem, preday, precount, dayCount: determinedDayCount });
+      socket.emit("refreshData", { pid, name, pretype, results: medicationsData, prem, preday, precount, dayCount: 1 });
       socket.emit("toggle_floating_area", false);
 
       if (medicationsData.length === 0) console.log("No medication results found.");
