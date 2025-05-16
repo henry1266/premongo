@@ -281,6 +281,7 @@ async function insertPrescription(pid, presec, predate, drugs, pretype, prem, pr
           medications: notificationMedications, // Use the structured medications data
           date: upsertedDocument.date,
           dayCount: dayCount, // Pass dayCount
+          plusday: plusday, // 添加plusday欄位
           details: `Type: ${upsertedDocument.pretype}, Sec: ${upsertedDocument.presec}, Date: ${upsertedDocument.predate}`
         };
         await axios.post("http://localhost:3001/api/notify-prescription-update", notificationData);
