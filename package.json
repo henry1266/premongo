@@ -13,6 +13,7 @@
     "@signpdf/placeholder-pdf-lib": "^3.2.4",
     "@signpdf/signer-p12": "^3.2.4",
     "@signpdf/signpdf": "^3.2.4",
+    "axios": "^1.9.0",
     "body-parser": "^1.20.3",
     "chartjs-plugin-annotation": "^3.1.0",
     "chokidar": "^4.0.1",
