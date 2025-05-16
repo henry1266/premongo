@@ -46,6 +46,7 @@ let acday; // 定义 acday
 // 函数：处理每个文件的内容
 function processFile(filePath) {
   fs.readFile(filePath, (err, data) => {
+    let determinedDayCount; // Declare determinedDayCount
     if (err) {
       console.error("Error reading the file:", err);
       return;
@@ -78,10 +79,12 @@ function processFile(filePath) {
       let daysDifference = timeDifference / (1000 * 60 * 60 * 24);
       acday = daysDifference + 1;
       console.log(acday);
+      determinedDayCount = acday; // Initialize with acday
 
       const matchPlusDays = decodedData.match(/\+([1-7])/);
       if (matchPlusDays) {
         const increment = parseInt(matchPlusDays[1], 10);
+        determinedDayCount = increment; // Update if increment exists
         const adjustedDate = new Date(
           parseInt(formattedFutureDate.slice(0, 4)),
           parseInt(formattedFutureDate.slice(4, 6)) - 1,
@@ -180,10 +183,10 @@ function processFile(filePath) {
         pretype = "01";
       }
 
-      insertPrescription(pid, presec, predate, medicationsData, pretype, prem, preday, precount, name)
+      insertPrescription(pid, presec, predate, medicationsData, pretype, prem, preday, precount, name, determinedDayCount)
         .catch(console.error);
 
-      socket.emit("refreshData", { pid, name, pretype, results: medicationsData, prem, preday, precount });
+      socket.emit("refreshData", { pid, name, pretype, results: medicationsData, prem, preday, precount, dayCount: determinedDayCount });
       socket.emit("toggle_floating_area", false);
 
       if (medicationsData.length === 0) console.log("No medication results found.");
@@ -218,7 +221,7 @@ function runPSScript2(dtype) {
   spawn("powershell.exe", ["-Command", psScriptTemplate]);
 }
 
-async function insertPrescription(pid, presec, predate, drugs, pretype, prem, preday, precount, patientName) {
+async function insertPrescription(pid, presec, predate, drugs, pretype, prem, preday, precount, patientName, dayCount) {
   const uri = "mongodb://192.168.68.79:27017";
   const client = new MongoClient(uri);
   try {
@@ -259,11 +262,11 @@ async function insertPrescription(pid, presec, predate, drugs, pretype, prem, pr
 
     if (upsertedDocument) {
       try {
-        // Ensure drugs array in notificationData matches what EJS expects
         const notificationMedications = upsertedDocument.drug ? upsertedDocument.drug.map(d => ({
             dname: d.dname,
             dinsuranceCode: d.dinsuranceCode,
             dcount: d.dcount,
+            frequency: d.df, // Pass frequency as df
             unitPrice: d.unitPrice, // Pass unitPrice
             totalCost: d.totalCost  // Pass totalCost
         })) : [];
@@ -273,6 +276,7 @@ async function insertPrescription(pid, presec, predate, drugs, pretype, prem, pr
           patientName: upsertedDocument.patientName || pid,
           medications: notificationMedications, // Use the structured medications data
           date: upsertedDocument.date,
+          dayCount: dayCount, // Pass dayCount
           details: `Type: ${upsertedDocument.pretype}, Sec: ${upsertedDocument.presec}, Date: ${upsertedDocument.predate}`
         };
         await axios.post("http://localhost:3001/api/notify-prescription-update", notificationData);
