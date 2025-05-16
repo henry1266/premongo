@@ -43,6 +43,7 @@ fs.watch(directoryPath, (eventType, filename) => {
 // 基礎三天
 let count1 = 3;
 let acday; // 定义 acday
+let plusday;
 // 函数：处理每个文件的内容
 function processFile(filePath) {
   fs.readFile(filePath, (err, data) => {
@@ -82,6 +83,7 @@ function processFile(filePath) {
       determinedDayCount = acday; // Initialize with acday
 
       const matchPlusDays = decodedData.match(/\+([1-7])/);
+      
       if (matchPlusDays) {
         const increment = parseInt(matchPlusDays[1], 10);
         determinedDayCount = increment; // Update if increment exists
@@ -93,13 +95,13 @@ function processFile(filePath) {
         adjustedDate.setDate(adjustedDate.getDate() + increment);
 
         switch (increment) {
-          case 1: runPSScript(1); count1 = 4; break;
-          case 2: runPSScript(2); count1 = 5; break;
-          case 3: runPSScript(3); count1 = 6; break;
-          case 4: runPSScript(4); count1 = 7; break;
-          case 5: runPSScript(5); count1 = 8; break;
-          case 6: runPSScript(6); count1 = 9; break;
-          case 7: runPSScript(7); count1 = 10; break;
+          case 1: runPSScript(1); count1 = 4; plusday = 1; break;
+          case 2: runPSScript(2); count1 = 5; plusday = 2; break;
+          case 3: runPSScript(3); count1 = 6; plusday = 3; break;
+          case 4: runPSScript(4); count1 = 7; plusday = 4; break;
+          case 5: runPSScript(5); count1 = 8; plusday = 5; break;
+          case 6: runPSScript(6); count1 = 9; plusday = 6;break;
+          case 7: runPSScript(7); count1 = 10;  plusday = 7; break;
           default: console.log("Unexpected increment value"); break;
         }
         const newFormattedFutureDate =
@@ -114,10 +116,12 @@ function processFile(filePath) {
       } else {
         count1 = acday;
         saveAndDeleteOriginal(filePath, decodedData);
+        plusday = 0;
       }
     } else {
       console.log("沒有匹配到任何日期");
     }
+    console.log(plusday);
     runPSScript2("處方");
     const regex2 = /(\d{8})(\d{2}:\d{2})([A-Z]\d{9})\s+(\d{8})\s+([a-zA-Z_\u4e00-\u9fa5]+)/;
     const match2 = decodedData.match(regex2);
@@ -186,7 +190,7 @@ function processFile(filePath) {
       insertPrescription(pid, presec, predate, medicationsData, pretype, prem, preday, precount, name, determinedDayCount)
         .catch(console.error);
 
-      socket.emit("refreshData", { pid, name, pretype, results: medicationsData, prem, preday, precount, dayCount: 1 });
+      socket.emit("refreshData", { pid, name, pretype, results: medicationsData, prem, preday, precount, plusday: plusday });
       socket.emit("toggle_floating_area", false);
 
       if (medicationsData.length === 0) console.log("No medication results found.");
