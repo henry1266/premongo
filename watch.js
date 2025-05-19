@@ -278,6 +278,7 @@ async function insertPrescription(pid, presec, predate, drugs, pretype, prem, pr
         const notificationData = {
           _id: upsertedDocument._id.toString(),
           patientName: upsertedDocument.patientName || pid,
+          pid: pid, // 明確加入 pid 欄位
           medications: notificationMedications, // Use the structured medications data
           date: upsertedDocument.date,
           dayCount: dayCount, // Pass dayCount
